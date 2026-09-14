@@ -45,3 +45,16 @@ jobs:
 
       - name: Run ruff
         run: ruff check src tests
+
+  all-tests-passed:
+    name: All tests passed
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check test job results
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "test: ${{ needs.test.result }}, lint: ${{ needs.lint.result }}"
+            exit 1
+          fi
