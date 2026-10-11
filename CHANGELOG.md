@@ -24,6 +24,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   error. The trailing blank line is now optional; `else`/`elif`/`except`/
   `finally` clauses and statements left open by an unclosed bracket or
   string still continue as before.
+- `:include:`/`:exclude:` accept a single line number (`:exclude: 2`); it
+  previously raised an `IndexError` unless written as a range (`2-2`).
+- Settings from one project's `autorun_languages` no longer carry over into
+  a later build in the same process (e.g. `pycon_fail_on_error`).
 
 ## [1.1.0] - 2026-07-31
 

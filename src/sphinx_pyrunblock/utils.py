@@ -20,7 +20,7 @@ def linerange(s):
     """
     Parse line number range string into a set of integers
 
-    :param s: string of the form "start-end" or "start-"
+    :param s: string of the form "n", "start-end" or "start-"
     :type s: str
     :return: a set of integers in the specified range (inclusive)
     :rtype: set
@@ -30,6 +30,9 @@ def linerange(s):
 
     parts = s.split("-")
     start = int(parts[0])
+    if len(parts) == 1:
+        # a single line number
+        return {start}
     if len(parts[1]) > 0:
         end = int(parts[1])
         return set(list(range(start, end + 1)))

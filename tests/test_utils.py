@@ -35,3 +35,7 @@ def test_shorter_two_components():
 
 def test_shorter_single_component():
     assert shorter("d.rst") == "d.rst"
+
+
+def test_linerange_bare_number():
+    assert linerange("4") == {4}

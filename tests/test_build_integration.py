@@ -173,7 +173,7 @@ def test_session_linenos_do_not_count_hidden_lines(tmp_path):
         ".. runblock:: pycon\n"
         "   :session:\n"
         "   :linenos:\n"
-        "   :exclude: 2-2\n"
+        "   :exclude: 2\n"
         "\n"
         "   >>> a = 1\n"
         "   >>> b = 2\n"
@@ -250,9 +250,6 @@ def test_session_failure_cascades_to_later_blocks(tmp_path):
         tmp_path,
         ".. runblock:: pycon\n   :session:\n\n   >>> a = 1 / 0\n\n"
         ".. runblock:: pycon\n   :session:\n\n   >>> a\n",
-        # explicit, since AutoRun.config otherwise carries over from a
-        # previous build in this process
-        conf='autorun_languages = {"pycon_fail_on_error": False}\n',
     )
     app = _build(src, tmp_path)
     assert app.statuscode == 0
@@ -274,3 +271,23 @@ def test_block_without_session_does_not_change_session_state(tmp_path):
     # 1, not 99: the isolated block ran in its own namespace
     assert '<span class="go">1</span>' in html
     assert '<span class="go">99</span>' not in html
+
+
+def test_config_does_not_leak_between_builds(tmp_path):
+    # AutoRun.config is process-wide state: a setting from one project's
+    # conf.py must not carry over into a later build that doesn't set it
+    failing = tmp_path / "a"
+    failing.mkdir()
+    first = _project(
+        failing,
+        ".. runblock:: pycon\n\n   >>> 1 / 0\n",
+        conf='autorun_languages = {"pycon_fail_on_error": True}\n',
+    )
+    with pytest.raises(SphinxError, match="runblock failed"):
+        _build(first, failing)
+
+    lenient = tmp_path / "b"
+    lenient.mkdir()
+    second = _project(lenient, ".. runblock:: pycon\n\n   >>> 1 / 0\n")
+    app = _build(second, lenient)
+    assert app.statuscode == 0

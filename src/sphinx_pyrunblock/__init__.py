@@ -42,7 +42,7 @@ def setup(app):
         "builder-inited", AutoRun.builder_init
     )  # connect event "builder-inited" to AutoRun.builder_init
     app.add_config_value(
-        "autorun_languages", AutoRun.config, "env"
+        "autorun_languages", dict(AutoRun.DEFAULTS), "env"
     )  # declare autorun_languages, it is a dict defined in conf.py
     return {
         "version": __version__,

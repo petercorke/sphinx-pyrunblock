@@ -14,16 +14,22 @@ class AutoRun(object):
     dict from ``conf.py`` on the Sphinx ``builder-inited`` event.
     """
 
-    # default configuration parameters
-    config = {
+    # default configuration parameters; never mutated, so that each build
+    # starts from these rather than from whatever an earlier build in the
+    # same process left behind
+    DEFAULTS = {
         "pycon": "python ",  # declare pycon a valid language
         "pycon_prefix_chars": 4,
         "pycon_show_source": False,
         "pycon_fail_on_error": False,
     }
 
+    # the configuration in effect for the current build
+    config = dict(DEFAULTS)
+
     @classmethod
     def builder_init(cls, app):
         # executed on a Sphinx builder-inited event
-        # - update the configuration with the values from conf.py
-        cls.config.update(app.builder.config.autorun_languages)
+        # - the defaults updated with the values from conf.py, rebuilt from
+        #   scratch so one build's settings can't leak into the next
+        cls.config = {**cls.DEFAULTS, **app.builder.config.autorun_languages}
