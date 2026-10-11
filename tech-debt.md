@@ -1,5 +1,66 @@
 # Technical Debt
 
+## `runblock` execution is not thread-safe (`parallel_read_safe: False`)
+
+`setup()` (`src/sphinx_pyrunblock/__init__.py`) declares
+`parallel_read_safe: False`, so Sphinx falls back to fully serial reading
+whenever a build requests `-j`/parallel reading, and prints a warning.
+Documented as expected/ignorable in `docs/source/index.rst`
+("Parallel build warning").
+
+### Why
+
+`runsource()` (`src/sphinx_pyrunblock/interpreter.py`) captures a code
+block's output by mutating process-global state for the duration of
+execution: `sys.stdout`/`sys.stderr` (via `contextlib.redirect_stdout`/
+`redirect_stderr`, which set plain module attributes, not thread-locals),
+`sys.__stdout__`, and OS file descriptor 1 (via `os.dup2`, to catch
+C-extension writes that bypass `sys.stdout`, e.g. numpy/matplotlib).
+None of this is reentrant — two `runblock` directives executing
+concurrently *in the same process* would race on the save/redirect/
+restore sequence and corrupt each other's captured output.
+
+In practice this is currently harmless: Sphinx's `-j` parallel reading
+uses separate `multiprocessing` worker processes, each with its own fd
+table and `sys.stdout`, so no actual collision occurs today. The `False`
+flag is a conservative, correct declaration about the code itself, not a
+reaction to an observed bug — kept in case Sphinx's parallel
+implementation ever changes, or the extension is invoked from a threaded
+context.
+
+### Possible fix (sketch, not started)
+
+Subprocess-per-block isolation (fully safe, but per-block process-spawn
+overhead, discussed and rejected for now) vs. a narrower fix: wrap just
+the redirect/execute/restore critical section in `runsource()` with a
+module-level `threading.Lock()`, e.g.:
+
+```python
+_stdout_lock = threading.Lock()
+
+def runsource(self, source, ...):
+    ...
+    with _stdout_lock:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        ...
+        os.dup2(devnull_fd, 1)
+        ...
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                self.runcode(code)
+        finally:
+            ...
+```
+
+This serializes only actual code *execution* (milliseconds per block)
+rather than Sphinx serializing entire-document *reading*, so it would be
+strictly better than today's fallback if `parallel_read_safe` were ever
+flipped to `True`. Concurrent runblocks would still queue rather than
+truly overlap, since fd 1 is process-wide and can't be made
+thread-local — there's no way around that short of subprocess isolation.
+No action planned; captured here in case parallel reading becomes a
+real bottleneck for some downstream toolbox's docs build.
+
 ## `runblock` never fails the Sphinx build on a runtime error — RESOLVED
 
 Resolved 2026-07-31 on `feature/fail-on-error`: added the opt-in
