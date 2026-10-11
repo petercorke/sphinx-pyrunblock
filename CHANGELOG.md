@@ -5,6 +5,8 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-11
+
 ### Added
 
 - `:session: [NAME]` per-block option: blocks that share a session (the

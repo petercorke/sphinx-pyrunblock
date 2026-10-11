@@ -5,7 +5,7 @@ authors = [
     { name = "Hugo Osvaldo Barrera", email = "hugo@barrera.io" },
 ]
 name = "sphinx-pyrunblock"
-version = "1.1.0"
+version = "1.2.0"
 description = "Sphinx extension that executes code and embeds real output in docs (.. runblock:: directive)"
 
 readme = "README.md"
