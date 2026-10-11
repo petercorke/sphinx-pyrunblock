@@ -150,3 +150,127 @@ def test_session_linenos_continue_from_session_start(tmp_path):
     numbers = [int(n) for n in re.findall(r'class="linenos">\s*(\d+)<', html)]
     # block 1 shows 2 lines (assignments print nothing), block 2 shows 4
     assert numbers == [1, 2, 3, 4, 5, 6]
+
+
+def _project(tmp_path, index, conf=""):
+    """Write a throwaway one-page Sphinx project and return its source dir."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "conf.py").write_text('extensions = ["sphinx_pyrunblock"]\n' + conf)
+    (src / "index.rst").write_text("Test\n====\n\n" + index)
+    return src
+
+
+def _linenos(html):
+    return [int(n) for n in re.findall(r'class="linenos">\s*(\d+)<', html)]
+
+
+def test_session_linenos_do_not_count_hidden_lines(tmp_path):
+    # :exclude: and "# ignore" hide lines from the output but still run them,
+    # and must not use up line numbers
+    src = _project(
+        tmp_path,
+        ".. runblock:: pycon\n"
+        "   :session:\n"
+        "   :linenos:\n"
+        "   :exclude: 2-2\n"
+        "\n"
+        "   >>> a = 1\n"
+        "   >>> b = 2\n"
+        "   >>> c = 3\n"
+        "\n"
+        ".. runblock:: pycon\n"
+        "   :session:\n"
+        "   :linenos:\n"
+        "\n"
+        "   >>> x = 10  # ignore\n"
+        "   >>> a + b + c\n",
+    )
+    _build(src, tmp_path)
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    # hidden lines still ran: b was set by the excluded line
+    assert '<span class="go">6</span>' in html
+    # block 1 shows 2 lines, block 2 shows the expression and its output
+    assert _linenos(html) == [1, 2, 3, 4]
+
+
+def test_session_linenos_only_counted_in_session(tmp_path):
+    # a block without :session: numbers from 1 and doesn't advance the count
+    src = _project(
+        tmp_path,
+        ".. runblock:: pycon\n   :session:\n   :linenos:\n\n   >>> a = 1\n\n"
+        ".. runblock:: pycon\n   :linenos:\n\n   >>> 1 + 1\n\n"
+        ".. runblock:: pycon\n   :session:\n   :linenos:\n\n   >>> a\n",
+    )
+    _build(src, tmp_path)
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    # session: 1; isolated block: 1, 2 (input and output); session: 2, 3
+    assert _linenos(html) == [1, 1, 2, 2, 3]
+
+
+def test_session_per_block_options_apply_to_later_blocks(tmp_path):
+    np = pytest.importorskip("numpy")
+    saved = np.get_printoptions()
+    try:
+        src = _project(
+            tmp_path,
+            ".. runblock:: pycon\n   :session:\n   :numpy:\n\n   >>> v = np.pi\n\n"
+            ".. runblock:: pycon\n   :session:\n   :numpy:\n   :precision: 2\n\n"
+            "   >>> print(np.array([v]))\n\n"
+            # no :numpy: here, np must still exist from earlier in the session
+            ".. runblock:: pycon\n   :session:\n\n   >>> float(np.e) > 2\n",
+        )
+        app = _build(src, tmp_path)
+        assert app.statuscode == 0
+        html = (tmp_path / "build" / "index.html").read_text("utf-8")
+        assert "RUNBLOCK-ERROR" not in html
+        assert '<span class="go">[3.14]</span>' in html
+        assert '<span class="go">True</span>' in html
+    finally:
+        np.set_printoptions(**saved)
+
+
+def test_session_fail_on_error_reports_failing_block(tmp_path):
+    src = _project(
+        tmp_path,
+        ".. runblock:: pycon\n   :session:\n\n   >>> a = 1\n\n"
+        ".. runblock:: pycon\n   :session:\n\n   >>> a + 1\n\n"
+        ".. runblock:: pycon\n   :session:\n\n   >>> a / 0\n",
+        conf='autorun_languages = {"pycon_fail_on_error": True}\n',
+    )
+    # the failing block is the third, which starts at line 16 of index.rst
+    with pytest.raises(SphinxError, match=r"index\.rst:\d+"):
+        _build(src, tmp_path)
+
+
+def test_session_failure_cascades_to_later_blocks(tmp_path):
+    # without fail_on_error the build succeeds and the markers show the
+    # consequence in each later block, as the docs describe
+    src = _project(
+        tmp_path,
+        ".. runblock:: pycon\n   :session:\n\n   >>> a = 1 / 0\n\n"
+        ".. runblock:: pycon\n   :session:\n\n   >>> a\n",
+        # explicit, since AutoRun.config otherwise carries over from a
+        # previous build in this process
+        conf='autorun_languages = {"pycon_fail_on_error": False}\n',
+    )
+    app = _build(src, tmp_path)
+    assert app.statuscode == 0
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    assert html.count("RUNBLOCK-ERROR") >= 2
+    assert "ZeroDivisionError" in html
+    assert "NameError" in html
+
+
+def test_block_without_session_does_not_change_session_state(tmp_path):
+    src = _project(
+        tmp_path,
+        ".. runblock:: pycon\n   :session:\n\n   >>> a = 1\n\n"
+        ".. runblock:: pycon\n\n   >>> a = 99\n\n"
+        ".. runblock:: pycon\n   :session:\n\n   >>> a\n",
+    )
+    _build(src, tmp_path)
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    # 1, not 99: the isolated block ran in its own namespace
+    assert '<span class="go">1</span>' in html
+    assert '<span class="go">99</span>' not in html

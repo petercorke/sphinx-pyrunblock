@@ -120,3 +120,23 @@ def test_runblock_open_bracket_still_joins_unindented_lines():
     assert results[0][0] == "y = [1,\n2]"
     assert results[1][1] == "[1, 2]"
     assert not any(r[2] for r in results)
+
+
+def test_runblock_shared_console_carries_state_between_calls():
+    console = InteractiveInterpreter()
+    runblock(["a = 2", "def f(x):", "    return x * a", ""], False, "t", console)
+    results = runblock(["f(21)"], False, "t", console)
+    assert results == [("f(21)", "42", False)]
+
+
+def test_runblock_default_console_is_isolated():
+    runblock(["a = 2"], False, "t")
+    results = runblock(["a"], False, "t")
+    assert results[0][2] is True  # NameError
+
+
+def test_runblock_shared_console_compound_without_blank_line():
+    console = InteractiveInterpreter()
+    runblock(["for i in range(3):", "    total = i", "n = 7"], False, "t", console)
+    results = runblock(["total, n"], False, "t", console)
+    assert results[0][1] == "(2, 7)"
