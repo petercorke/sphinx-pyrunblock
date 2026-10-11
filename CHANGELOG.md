@@ -31,6 +31,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Error markers no longer depend on `sys.excepthook`: a replaced hook (for
   example one installed by pytest-qt) used to supply the marker's text
   in place of the real exception.
+- The `file:line` in a runblock error message was reduced to `C:14` on
+  Windows, because the drive-letter colon was taken for the line-number
+  separator. It now names the `.rst` file.
 
 ## [1.1.0] - 2026-07-31
 

@@ -1,5 +1,6 @@
 """Small pure-function helpers used by the runblock directive."""
 
+import re
 from pathlib import Path
 
 
@@ -14,6 +15,21 @@ def shorter(path):
     """
     # this is horrible... but it works
     return str(Path(*Path(path).parts[-2:]))
+
+
+def strip_lineno(source):
+    """
+    Remove a trailing ``:lineno`` from a ``path:lineno`` source string
+
+    Only a trailing run of digits is removed, so the drive-letter colon of a
+    Windows path (``C:\\docs\\index.rst:4``) is left alone.
+
+    :param source: source location as reported by docutils
+    :type source: str
+    :return: the path without any line number
+    :rtype: str
+    """
+    return re.sub(r":\d+$", "", source)
 
 
 def linerange(s):

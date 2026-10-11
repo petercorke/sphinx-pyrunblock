@@ -7,7 +7,7 @@ from docutils.parsers.rst import Directive, directives
 
 from .config import AutoRun, RunBlockError
 from .interpreter import runblock
-from .utils import linerange, shorter
+from .utils import linerange, shorter, strip_lineno
 
 
 def build_runfirst(base_runfirst, options):
@@ -114,7 +114,7 @@ class RunBlock(Directive):
         try:
             note = self.state_machine.observers[0].__self__
             s = str(note.current_source)
-            srcfile = shorter(s.split(":")[0])
+            srcfile = shorter(strip_lineno(s))
         except Exception:
             # keep fallback value
             pass

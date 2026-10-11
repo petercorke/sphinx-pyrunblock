@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sphinx_pyrunblock.utils import linerange, shorter
+from sphinx_pyrunblock.utils import linerange, shorter, strip_lineno
 
 
 def test_linerange_none():
@@ -39,3 +39,16 @@ def test_shorter_single_component():
 
 def test_linerange_bare_number():
     assert linerange("4") == {4}
+
+
+def test_strip_lineno_posix():
+    assert strip_lineno("/home/u/docs/index.rst:42") == "/home/u/docs/index.rst"
+
+
+def test_strip_lineno_keeps_windows_drive_letter():
+    assert strip_lineno(r"C:\Users\u\docs\index.rst:42") == r"C:\Users\u\docs\index.rst"
+
+
+def test_strip_lineno_without_lineno():
+    assert strip_lineno(r"C:\docs\index.rst") == r"C:\docs\index.rst"
+    assert strip_lineno("index.rst") == "index.rst"
