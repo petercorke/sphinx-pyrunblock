@@ -77,3 +77,46 @@ def test_runblock_marks_syntax_error_as_failed():
     results = runblock(["def f(:"], show_source=False, where="test")
     assert len(results) == 1
     assert results[0][2] is True
+
+
+def test_runblock_compound_statements_without_trailing_blank_line():
+    # a hand-written transcript with no blank line closing each body
+    code = [
+        "class A:",
+        "    pass",
+        "class B(A):",
+        "    pass",
+        "for i in range(3):",
+        "    x = i",
+        "x",
+        "B.__mro__[1].__name__",
+    ]
+    results = runblock(code, show_source=False, where="test")
+    assert len(results) == 5
+    assert not any(r[2] for r in results)
+    assert results[3] == ("x", "2", False)
+    assert results[4][1] == "'A'"
+
+
+def test_runblock_try_except_without_trailing_blank_line():
+    code = ["try:", "    1 / 0", "except ZeroDivisionError:", '    print("z")', "1 + 1"]
+    results = runblock(code, show_source=False, where="test")
+    assert len(results) == 2
+    assert results[0][1] == "z"
+    assert results[1][1] == "2"
+    assert not any(r[2] for r in results)
+
+
+def test_runblock_if_else_without_trailing_blank_line():
+    code = ["if False:", "    a = 1", "else:", "    a = 2", "a"]
+    results = runblock(code, show_source=False, where="test")
+    assert len(results) == 2
+    assert results[1][1] == "2"
+
+
+def test_runblock_open_bracket_still_joins_unindented_lines():
+    code = ["y = [1,", "2]", "y"]
+    results = runblock(code, show_source=False, where="test")
+    assert results[0][0] == "y = [1,\n2]"
+    assert results[1][1] == "[1, 2]"
+    assert not any(r[2] for r in results)

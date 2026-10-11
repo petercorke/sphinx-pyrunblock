@@ -1,10 +1,15 @@
 """The execution engine: runs code through a shared InteractiveInterpreter."""
 
+import codeop
 import contextlib
 import io
 import os
+import re
 import sys
 from code import InteractiveInterpreter
+
+# keywords that continue a compound statement at the same indentation level
+_CLAUSE_KEYWORDS = {"else", "elif", "except", "finally"}
 
 
 def _summarize_exception(stderr_text):
@@ -114,6 +119,36 @@ def runsource(self, source, filename="<input>", symbol="single", where=None):
     return False, stdout_text, False
 
 
+def _starts_new_statement(source, line):
+    """
+    Decide whether ``line`` cannot continue the pending ``source``.
+
+    A real console needs a blank line to close a compound statement, but a
+    transcript written by hand often omits it.  An unindented line that is
+    not an ``else``/``elif``/``except``/``finally`` clause can never belong
+    to the body of a pending compound statement, so the statement can be
+    closed implicitly -- provided it is complete once terminated.  Statements
+    left open by an unclosed bracket or triple-quoted string are not
+    complete, so their unindented continuation lines are still joined.
+
+    :param source: pending (incomplete) source text
+    :type source: str
+    :param line: the next input line
+    :type line: str
+    :return: True if the pending statement should be closed before ``line``
+    :rtype: bool
+    """
+    if not line or line[0].isspace():
+        return False
+    word = re.match(r"\w+", line)
+    if word and word.group() in _CLAUSE_KEYWORDS:
+        return False
+    try:
+        return codeop.compile_command(source + "\n", "<input>", "single") is not None
+    except (OverflowError, SyntaxError, ValueError):
+        return False
+
+
 def runblock(code, show_source, where):
     # come here for each block of code
     source_lines = (line.rstrip() for line in code)
@@ -131,16 +166,28 @@ def runblock(code, show_source, where):
 
     more = False
     source = ""
+    pending = None  # line read ahead that begins the next statement
 
     try:
         while True:
-            source = next(source_lines)
+            if pending is None:
+                source = next(source_lines)
+            else:
+                source, pending = pending, None
 
             more, retval, failed = runsource(console, source, where=where)
             if show_source:
                 print(source)
             while more:
                 next_line = next(source_lines)
+                if _starts_new_statement(source, next_line):
+                    # close the compound statement implicitly, and carry
+                    # the line over to start the next statement
+                    more, retval, failed = runsource(
+                        console, source + "\n", where=where
+                    )
+                    pending = next_line
+                    break
                 if show_source:
                     print("...", next_line)
                 source += "\n" + next_line

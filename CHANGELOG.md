@@ -5,6 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A compound statement (`for`, `class`, `def`, `if`, ...) followed directly
+  by an unindented statement no longer swallows that statement as a syntax
+  error. The trailing blank line is now optional; `else`/`elif`/`except`/
+  `finally` clauses and statements left open by an unclosed bracket or
+  string still continue as before.
+
 ## [1.1.0] - 2026-07-31
 
 ### Added

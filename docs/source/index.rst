@@ -120,9 +120,18 @@ More examples
       >>> getunit(np.r_[90, 180], 'deg', dim=2)
       >>> getunit([90, 180, 270], 'deg', dim=3)
 
-For any construct with an indented body (``for``, ``while``, ``with``), it's
-important to put a blank line on the end. That will be stripped off and
-won't appear in the output.
+A statement with an indented body (``for``, ``while``, ``with``, ``def``,
+``class``, ...) ends at the first following line that is not indented, so
+you don't need a blank line after it::
+
+    >>> class Point:
+    ...     pass
+    >>> p = Point()
+
+A blank line after the body (or a bare ``>>>`` or ``...``) is still accepted,
+as in a real console, and is stripped off so it won't appear in the output.
+``else``, ``elif``, ``except`` and ``finally`` clauses continue the preceding
+statement as you'd expect.
 
 .. runblock:: pycon
    :numpy:
