@@ -85,12 +85,19 @@ def runsource(self, source, filename="<input>", symbol="single", where=None):
     devnull_fd = os.open(os.devnull, os.O_WRONLY)
     saved_stdout_fd = os.dup(1)
     real_dunder_stdout = sys.__stdout__
+    # InteractiveInterpreter.showtraceback() defers to sys.excepthook when it
+    # has been replaced, instead of writing the traceback to stderr.  A test
+    # plugin or Sphinx extension that installs its own hook would then change
+    # (or swallow) the error text we capture, so use the default for the run.
+    real_excepthook = sys.excepthook
     os.dup2(devnull_fd, 1)
     sys.__stdout__ = stdout
+    sys.excepthook = sys.__excepthook__
     try:
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             self.runcode(code)
     finally:
+        sys.excepthook = real_excepthook
         sys.__stdout__ = real_dunder_stdout
         os.dup2(saved_stdout_fd, 1)
         os.close(saved_stdout_fd)

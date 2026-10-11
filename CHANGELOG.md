@@ -28,6 +28,9 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   previously raised an `IndexError` unless written as a range (`2-2`).
 - Settings from one project's `autorun_languages` no longer carry over into
   a later build in the same process (e.g. `pycon_fail_on_error`).
+- Error markers no longer depend on `sys.excepthook`: a replaced hook (for
+  example one installed by pytest-qt) used to supply the marker's text
+  in place of the real exception.
 
 ## [1.1.0] - 2026-07-31
 

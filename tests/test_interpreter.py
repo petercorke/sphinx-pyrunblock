@@ -1,3 +1,4 @@
+import sys
 from code import InteractiveInterpreter
 
 from sphinx_pyrunblock.interpreter import runblock, runsource
@@ -140,3 +141,21 @@ def test_runblock_shared_console_compound_without_blank_line():
     runblock(["for i in range(3):", "    total = i", "n = 7"], False, "t", console)
     results = runblock(["total, n"], False, "t", console)
     assert results[0][1] == "(2, 7)"
+
+
+def test_runsource_ignores_replaced_excepthook(monkeypatch):
+    # e.g. pytest-qt replaces sys.excepthook; the error marker must still
+    # carry the real exception, and the hook must be put back afterwards
+    calls = []
+
+    def hook(*args):
+        calls.append(args)
+        print("Exceptions caught in Qt event loop", file=sys.stderr)
+
+    monkeypatch.setattr(sys, "excepthook", hook)
+    console = InteractiveInterpreter()
+    more, retval, failed = runsource(console, "1 / 0", where="test:9")
+    assert failed is True
+    assert "ZeroDivisionError" in retval
+    assert calls == []
+    assert sys.excepthook is hook
