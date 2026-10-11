@@ -22,9 +22,11 @@ The ``autorun_languages`` dict
 The dict's keys are **not** language names in the usual sense -- ``pycon``
 is really the only supported language, a historical artifact of an earlier
 design that also executed a ``console`` (bash) language via a separate
-subprocess. That's no longer how this extension works: every block runs
-in a single, shared, in-process ``code.InteractiveInterpreter``, which is
-what makes it fast (no subprocess spawned per code block). Think of
+subprocess. That's no longer how this extension works: blocks run in
+an in-process ``code.InteractiveInterpreter``, which is what makes it
+fast (no subprocess spawned per code block). Each block gets its own
+namespace unless it joins a :ref:`session <index:Persistent sessions>`
+with ``:session:``. Think of
 ``pycon`` as the key *prefix* under which each of the settings below is
 namespaced, rather than a literal interpreter selection.
 
@@ -67,8 +69,9 @@ presence matters.  This provides backward compatibility with the older ``sphinx-
 
 ``<lang>_runfirst``
     A newline-separated string of Python statements, **without prompts**,
-    executed once before every ``runblock:: <lang>`` block in the
-    document, in the same shared interpreter session. Doesn't appear in
+    executed before every ``runblock:: <lang>`` block in the document, in
+    that block's own namespace -- or, for blocks that use ``:session:``,
+    once at the start of the session. Doesn't appear in
     the rendered output. This is the main per-project customisation
     point -- typically used to import commonly-used modules and set up
     formatting/print options once, rather than repeating it in every

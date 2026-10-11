@@ -7,6 +7,7 @@ Sphinx 7), whereas ``sphinx.application.Sphinx`` is the stable public
 surface and ships with the base package already required by this project.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -120,3 +121,32 @@ def test_unknown_language_raises_runblockerror(tmp_path):
 
     with pytest.raises(SphinxError, match="Unknown language"):
         _build(src, tmp_path)
+
+
+def test_session_carries_state_between_blocks(tmp_path):
+    app = _build(ROOTS / "test-session", tmp_path)
+    assert app.statuscode == 0
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    assert "RUNBLOCK-ERROR" not in html
+    # x and counter were set in the first block, read in the second; counter
+    # is 5 (not 0+5+0...) because runfirst ran once, at the session start
+    assert '<span class="go">42</span>' in html
+    assert '<span class="go">5</span>' in html
+
+
+def test_session_isolation(tmp_path):
+    _build(ROOTS / "test-session", tmp_path)
+    index = (tmp_path / "build" / "index.html").read_text("utf-8")
+    other = (tmp_path / "build" / "other.html").read_text("utf-8")
+    # a named session, a block with no session, and the same unnamed
+    # session in another document must each see none of the state
+    assert index.count('<span class="go">False</span>') == 2
+    assert '<span class="go">False</span>' in other
+
+
+def test_session_linenos_continue_from_session_start(tmp_path):
+    _build(ROOTS / "test-session", tmp_path)
+    html = (tmp_path / "build" / "index.html").read_text("utf-8")
+    numbers = [int(n) for n in re.findall(r'class="linenos">\s*(\d+)<', html)]
+    # block 1 shows 2 lines (assignments print nothing), block 2 shows 4
+    assert numbers == [1, 2, 3, 4, 5, 6]

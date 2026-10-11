@@ -149,10 +149,26 @@ def _starts_new_statement(source, line):
         return False
 
 
-def runblock(code, show_source, where):
-    # come here for each block of code
+def runblock(code, show_source, where, console=None):
+    """
+    Run one block of code and pair each statement with its output.
+
+    :param code: lines of code, without prompts
+    :type code: list[str]
+    :param show_source: echo the source to stdout as it is run
+    :type show_source: bool
+    :param where: ``file:line`` of the block, used in error markers
+    :type where: str
+    :param console: interpreter to run the code in; pass the same one to
+        successive calls to carry variables from block to block.  A fresh,
+        isolated interpreter is used if omitted.
+    :type console: InteractiveInterpreter | None
+    :return: list of ``(source, output, failed)`` triples
+    :rtype: list[tuple[str, str, bool]]
+    """
     source_lines = (line.rstrip() for line in code)
-    console = InteractiveInterpreter()
+    if console is None:
+        console = InteractiveInterpreter()
     results = []
 
     def append_result(source_text, retval_text, failed):

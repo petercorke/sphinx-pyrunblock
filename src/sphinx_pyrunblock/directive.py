@@ -1,5 +1,7 @@
 """The ``runblock`` directive itself."""
 
+from code import InteractiveInterpreter
+
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 
@@ -71,6 +73,7 @@ class RunBlock(Directive):
         "smtb": directives.flag,
         "precision": directives.unchanged,
         "no-prompt": directives.flag,
+        "session": directives.unchanged,
     }
 
     def run(self):
@@ -120,7 +123,27 @@ class RunBlock(Directive):
 
         no_prompt = "no-prompt" in self.options
 
-        runfirst = build_runfirst(config.get(language + "_runfirst", ""), self.options)
+        # A block with :session: shares its namespace with the other blocks
+        # of that session in this document.  env.temp_data is cleared by
+        # Sphinx for every document read, which scopes a session to one
+        # document: output never depends on the order documents are read in.
+        session = None
+        if "session" in self.options:
+            env = self.state.document.settings.env
+            sessions = env.temp_data.setdefault("pyrunblock_sessions", {})
+            key = (language, (self.options["session"] or "").strip())
+            if key not in sessions:
+                sessions[key] = {"console": InteractiveInterpreter(), "lines": 0}
+                base_runfirst = config.get(language + "_runfirst", "")
+            else:
+                # the configured runfirst ran when the session began, running
+                # it again would clobber the session's state
+                base_runfirst = ""
+            session = sessions[key]
+        else:
+            base_runfirst = config.get(language + "_runfirst", "")
+
+        runfirst = build_runfirst(base_runfirst, self.options)
 
         include_lines = linerange(self.options.get("include", None))
         exclude_lines = linerange(self.options.get("exclude", None))
@@ -161,7 +184,12 @@ class RunBlock(Directive):
             code += [_strip_line(line) for line in self.content]
 
         ######## RUN THE CODE BLOCK ##########
-        results = runblock(code, show_source, where)
+        results = runblock(
+            code,
+            show_source,
+            where,
+            console=session["console"] if session is not None else None,
+        )
 
         # each result is a triple: input, output, and whether it raised.
         # Failure is checked across *all* results, including the runfirst
@@ -214,4 +242,9 @@ class RunBlock(Directive):
         # entirely on the >>> / ... prompts this option removes.
         literal["language"] = "python" if no_prompt else language
         literal["linenos"] = "linenos" in self.options
+        if session is not None:
+            # line numbers count from the start of the session, over the lines
+            # actually displayed (not those hidden by include/exclude/ignore)
+            literal["highlight_args"] = {"linenostart": session["lines"] + 1}
+            session["lines"] += code_out.count("\n")
         return [literal]

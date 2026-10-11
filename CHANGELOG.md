@@ -5,6 +5,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `:session: [NAME]` per-block option: blocks that share a session (the
+  unnamed one, or a named one) share a namespace, so a later block sees the
+  variables, functions and classes of earlier ones. This allows a narrative
+  with prose between code blocks, instead of repeating earlier lines in
+  every block and hiding them. Sessions are scoped to one document, the
+  configured `runfirst` runs once at the start of a session, and `:linenos:`
+  continues through the session.
+
 ### Fixed
 
 - A compound statement (`for`, `class`, `def`, `if`, ...) followed directly
